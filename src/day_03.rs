@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::fs::File;
-use std::hash::Hash;
 use std::io::{self, BufRead};
 
 fn priority(c: char) -> Result<u64, char> {
