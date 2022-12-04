@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs::File;
+use std::hash::Hash;
 use std::io::{self, BufRead};
 
 fn priority(c: char) -> Result<u64, char> {
@@ -29,13 +30,32 @@ fn compartment_overlap() -> io::Result<u64> {
     Ok(sum)
 }
 
-fn threes_overlap() -> io::Result<u64> {
+fn intersection(team: &Vec<String>) -> Result<char, String> {
+    let common_chars = team.iter()
+        .map(|i| HashSet::<char>::from_iter(i.chars()))
+        .reduce(|acc, item| {
+            acc.intersection(&item).map(|c| c.to_owned()).collect::<HashSet<char>>()
+        })
+        .unwrap();
+    assert_eq!(common_chars.len(), 1);
+    Ok(common_chars.iter().next().unwrap().to_owned())
+}
+
+fn team_overlap() -> io::Result<u64> {
     let mut sum: u64 = 0;
     let file = File::open("input-03.txt")?;
-    for line in io::BufReader::new(file).lines() {
-        // TODO: chunks of 3 lines
-    }
-    Ok(0)
+    const TEAM_SIZE: usize = 3;
+    let mut team: Vec<String> = (0..TEAM_SIZE).map(|_| String::new()).collect();
+    let mut i: usize = 0;
+    for line in io::BufReader::new(file).lines().map(|l| l.unwrap()) {
+        team[i] = line;
+        i += 1;
+        if i == TEAM_SIZE {
+            sum += priority(intersection(&team).unwrap()).unwrap();
+            i = 0;
+        }
+   }
+    Ok(sum)
 }
 
 #[cfg(test)]
@@ -48,7 +68,7 @@ mod run {
     }
 
     #[test]
-    fn print_threes_overlap() {
-        println!("{}", threes_overlap().unwrap());
+    fn print_team_overlap() {
+        println!("{}", team_overlap().unwrap());
     }
 }
