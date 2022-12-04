@@ -1,14 +1,28 @@
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::num::ParseIntError;
 use std::ops::Range;
 
-fn parse_range(s: &str) -> Result<Range<u64>, &str> {
+use crate::day_04::Error::*;
+
+#[derive(Debug)]
+enum Error {
+    IO(io::Error),
+    NotEnoughLineParts,
+    NotEnoughRangeParts,
+    ParseError(ParseIntError),
+}
+
+fn parse_range(s: &str) -> Result<Range<u64>, Error> {
     let mut parts = s.split("-");
-    let mut next_num = || { parts.next().unwrap().parse::<u64>().unwrap() };
-    let start = next_num();
-    let end = next_num();
+    let mut next_num = || {
+        parts.next().ok_or(NotEnoughRangeParts)
+            .and_then(|s| s.parse::<u64>().map_err(|e| ParseError(e)))
+    };
+    let start = next_num()?;
+    let end = next_num()?;
     assert!(parts.next().is_none());
-    Ok(start..end+1)
+    Ok(start..end + 1)
 }
 
 fn is_subrange(sub: &Range<u64>, sup: &Range<u64>) -> bool {
@@ -37,14 +51,18 @@ fn overlaps(r1: &Range<u64>, r2: &Range<u64>) -> bool {
         is_subrange(r1, r2)
 }
 
-fn overlaps_count() -> io::Result<u64> {
+fn overlaps_count() -> Result<u64, Error> {
     let mut count: u64 = 0;
-    let file = File::open("input-04.txt")?;
-    for line in io::BufReader::new(file).lines().map(|l| l.unwrap()) {
+    let file = File::open("input-04.txt").map_err(|e| IO(e))?;
+    for line_or_error in io::BufReader::new(file).lines() {
+        let line = line_or_error.map_err(|e| IO(e))?;
         let mut parts = line.split(",");
-        let mut next_range = || { parse_range(parts.next().unwrap()).unwrap() };
-        let r1 = next_range();
-        let r2 = next_range();
+        let mut next_range = || {
+            parts.next().ok_or(NotEnoughLineParts)
+                .and_then(|s| parse_range(s))
+        };
+        let r1 = next_range()?;
+        let r2 = next_range()?;
         assert!(parts.next().is_none());
         if overlaps(&r1, &r2) {
             count += 1;
