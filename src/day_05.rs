@@ -39,6 +39,18 @@ mod stacks {
         Ok(())
     }
 
+    pub fn make_move_9001(stacks: &mut Stacks, mov: Move) -> Result<(), Error> {
+        let from = &mut stacks[mov.from_stack];
+        let from_num_remaining = from.len() - mov.num_crates;
+        let crates: Vec<char> = from.iter()
+            .skip(from_num_remaining)
+            .map(|c| c.to_owned())
+            .collect();
+        from.truncate(from_num_remaining);
+        stacks[mov.to_stack].extend(crates);
+        Ok(())
+    }
+
     pub fn mk_stacks(num_stacks: usize) -> Stacks {
         (0..num_stacks).map(|_| Vec::new()).collect::<Stacks>()
     }
@@ -130,6 +142,14 @@ fn top_crates() -> Result<String, Error> {
     Ok(top_crates_str(&stacks))
 }
 
+fn top_crates_9001() -> Result<String, Error> {
+    let (mut stacks, moves) = parse("input-05.txt")?;
+    for mov in moves {
+        make_move_9001(&mut stacks, mov)?;
+    }
+    Ok(top_crates_str(&stacks))
+}
+
 #[cfg(test)]
 mod run {
     use super::*;
@@ -137,5 +157,10 @@ mod run {
     #[test]
     fn print_top_crates() {
         println!("{}", top_crates().unwrap());
+    }
+
+    #[test]
+    fn print_top_crates_9001() {
+        println!("{}", top_crates_9001().unwrap());
     }
 }
