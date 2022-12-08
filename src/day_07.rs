@@ -50,8 +50,8 @@ fn parse(path: &str) -> Result<HashMap<Vec<String>, u64>, Error> {
             loop {
                 let prev_size = result.get(&cwd).unwrap_or(&0);
                 result.insert(cwd.clone(), cwd_size + prev_size);
-                cwd.pop();
                 if cwd.is_empty() { break; }
+                cwd.pop();
             }
         }
     };
@@ -83,6 +83,15 @@ fn small_dirs_size() -> Result<u64, Error> {
     Ok(dir_map.values().filter(|v| v <= &&100_000).sum())
 }
 
+fn space_to_free() -> Result<u64, Error> {
+    let dir_map = parse("input-07.txt")?;
+    const DISK_SIZE: u64 = 70_000_000;
+    const REQUIRED_SPACE: u64 = 30_000_000;
+    let free_space = DISK_SIZE - dir_map[&vec![]];
+    let to_free = REQUIRED_SPACE - free_space;
+    Ok(dir_map.values().filter(|v| v >= &&to_free).min().unwrap().to_owned())
+}
+
 #[cfg(test)]
 mod run {
     use super::*;
@@ -90,5 +99,10 @@ mod run {
     #[test]
     fn print_small_dirs_size() {
         println!("{}", small_dirs_size().unwrap());
+    }
+
+    #[test]
+    fn print_space_to_free() {
+        println!("{}", space_to_free().unwrap());
     }
 }
