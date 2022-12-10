@@ -27,7 +27,7 @@ enum Dir {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Pos {
     pub x: i32,
-    pub y: i32
+    pub y: i32,
 }
 
 impl Pos {
@@ -66,16 +66,17 @@ fn move_tail(head_pos: &Pos, tail_pos: &Pos) -> Pos {
     } else {
         Pos {
             x: tail_pos.x + (head_pos.x - tail_pos.x).signum(),
-            y: tail_pos.y + (head_pos.y - tail_pos.y).signum()
+            y: tail_pos.y + (head_pos.y - tail_pos.y).signum(),
         }
     }
 }
 
-fn tail_locs() -> Result<usize, Error> {
+fn tail_locs(rope_length: usize) -> Result<usize, Error> {
     let file = File::open("input-09.txt").map_err(|e| IO(e))?;
-    let mut head_pos = Pos { x: 0, y: 0 };
-    let mut tail_pos = Pos { x: 0, y: 0 };
-    let mut tail_locs: HashSet<Pos> = HashSet::from([tail_pos]);
+    let head: usize = 0;
+    let tail: usize = rope_length - 1;
+    let mut rope_pos = vec![Pos { x: 0, y: 0 }; rope_length];
+    let mut tail_locs: HashSet<Pos> = HashSet::from([rope_pos[tail]]);
     for line in io::BufReader::new(file).lines() {
         let line = line.map_err(|e| IO(e))?;
         let mut parts = line.split_whitespace();
@@ -86,12 +87,22 @@ fn tail_locs() -> Result<usize, Error> {
             .ok_or(NoToken(line.clone()))?
             .parse::<u32>().map_err(|e| ParseInt(e))?;
         for _ in 0..steps {
-            head_pos = move_head(&head_pos, &dir);
-            tail_pos = move_tail(&head_pos, &tail_pos);
-            tail_locs.insert(tail_pos);
+            rope_pos[head] = move_head(&rope_pos[head], &dir);
+            for i in 1..rope_length {
+                rope_pos[i] = move_tail(&rope_pos[i - 1], &rope_pos[i]);
+            }
+            tail_locs.insert(rope_pos[tail]);
         }
     }
     Ok(tail_locs.len())
+}
+
+fn short_tail_locs() -> Result<usize, Error> {
+    tail_locs(2)
+}
+
+fn long_tail_locs() -> Result<usize, Error> {
+    tail_locs(10)
 }
 
 #[cfg(test)]
@@ -99,7 +110,12 @@ mod run {
     use super::*;
 
     #[test]
-    fn print_tail_locs() {
-        println!("{}", tail_locs().unwrap());
+    fn print_short_tail_locs() {
+        println!("{}", short_tail_locs().unwrap());
+    }
+
+    #[test]
+    fn print_long_tail_locs() {
+        println!("{}", long_tail_locs().unwrap());
     }
 }
