@@ -38,29 +38,47 @@ impl FromStr for Op {
     }
 }
 
-fn cycle_x_prod() -> Result<i64, Error> {
+fn x_vals() -> Result<Vec<i64>, Error> {
+    let mut result: Vec<i64> = vec![];
     let mut x: i64 = 1;
-    let control_cycles = [20, 60, 100, 140, 180, 220];
-    let mut prev_cycle: i64 = 1;
-    let mut next_cycle: i64;
-    let mut result: i64 = 0;
-    let mut next_control = 0;
     let file = File::open("input-10.txt").map_err(|e| IO(e))?;
     for line in io::BufReader::new(file).lines() {
         let op = line.map_err(|e| IO(e))?.parse::<Op>()?;
-        next_cycle = prev_cycle + match op {
+        let cycles =  match op {
             Noop => 1,
             AddX(_) => 2
         };
-        if next_control < control_cycles.len() &&
-            (prev_cycle == control_cycles[next_control] ||
-                prev_cycle + 1 == control_cycles[next_control] && prev_cycle == next_cycle - 2) {
-            result += x * control_cycles[next_control];
-            next_control += 1
+        for _ in 0..cycles {
+            result.push(x)
         }
-        prev_cycle = next_cycle;
         if let AddX(i) = op {
             x += i;
+        }
+    }
+    Ok(result)
+}
+
+fn cycle_x_prod() -> Result<i64, Error> {
+    let control_cycles = [20, 60, 100, 140, 180, 220];
+    let xs = x_vals()?;
+    let mut result: i64 = 0;
+    for cycle in control_cycles {
+        result += (cycle as i64) * xs[cycle-1];
+    }
+    Ok(result)
+}
+
+fn drawing() -> Result<String, Error> {
+    let mut result: String = String::new();
+    let xs = x_vals()?;
+    for i in 0..240 {
+        if i % 40 == 0 {
+            result.push('\n');
+        }
+        if (i as i64 % 40).abs_diff(xs[i]) <= 1 {
+            result.push('#')
+        } else {
+            result.push(' ')
         }
     }
     Ok(result)
@@ -73,5 +91,10 @@ mod run {
     #[test]
     fn print_cycle_x_prod() {
         println!("{}", cycle_x_prod().unwrap());
+    }
+
+    #[test]
+    fn print_drawing() {
+        println!("{}", drawing().unwrap());
     }
 }
