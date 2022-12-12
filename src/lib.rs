@@ -18,4 +18,6 @@ mod day_08;
 mod day_09;
 #[allow(dead_code)]
 mod day_10;
+#[allow(dead_code)]
+mod day_11;
 
