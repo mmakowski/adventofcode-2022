@@ -1,4 +1,6 @@
 #[allow(dead_code)]
+mod demo;
+#[allow(dead_code)]
 mod day_01;
 #[allow(dead_code)]
 mod day_02;
