@@ -5,6 +5,8 @@ use std::io::BufRead;
 use std::num::ParseIntError;
 use std::str::FromStr;
 
+use num::bigint::BigUint;
+use num::traits::Zero;
 use regex::Regex;
 
 use Error::*;
@@ -22,17 +24,18 @@ enum Error {
 }
 
 struct Monkey {
-    items: Vec<u64>,
-    op: Box<dyn Fn(u64) -> u64>,
-    dest: Box<dyn Fn(u64) -> usize>,
+    // TODO: BigUints are super-slow, instead we can track the remainders for 1..20 for each item
+    items: Vec<BigUint>,
+    op: Box<dyn Fn(BigUint) -> BigUint>,
+    dest: Box<dyn Fn(BigUint) -> usize>,
     inspection_count: u64,
 }
 
 impl Monkey {
     fn new(
-        items: Vec<u64>,
-        op: Box<dyn Fn(u64) -> u64>,
-        dest: Box<dyn Fn(u64) -> usize>,
+        items: Vec<BigUint>,
+        op: Box<dyn Fn(BigUint) -> BigUint>,
+        dest: Box<dyn Fn(BigUint) -> usize>,
     ) -> Self {
         Self { items, op, dest, inspection_count: 0 }
     }
@@ -58,7 +61,7 @@ impl FromStr for Operation {
 
 #[derive(Debug, Clone, Copy)]
 enum Operand {
-    Num(u64),
+    Num(u32),
     Old
 }
 
@@ -69,7 +72,7 @@ impl FromStr for Operand {
         if s == "old" {
             Ok(Operand::Old)
         } else {
-            let x = s.parse::<u64>().map_err(ParseInt)?;
+            let x = s.parse::<u32>().map_err(ParseInt)?;
             Ok(Operand::Num(x))
         }
     }
@@ -78,10 +81,10 @@ impl FromStr for Operand {
 #[derive(Debug, Clone)]
 struct ParserState {
     state: u8,
-    items: Vec<u64>,
+    items: Vec<BigUint>,
     operation: Operation,
     operand: Operand,
-    div: u64,
+    div: u32,
     true_dest: usize,
     false_dest: usize,
 }
@@ -118,7 +121,7 @@ impl ParserState {
         let cap = re.captures(line).ok_or(MalformedStartingItems(line.to_string()))?;
         let mut vals = vec![];
         for s in cap[1].split(", ") {
-            vals.push(s.parse::<u64>().map_err(ParseInt)?)
+            vals.push(s.parse::<u32>().map_err(ParseInt).map(BigUint::from)?)
         }
         self.items = vals;
         Ok(None)
@@ -137,7 +140,7 @@ impl ParserState {
     fn parse_div(&mut self, line: &String) -> Result<Option<Monkey>, Error> {
         let re = Regex::new(r"\s*Test: divisible by (\d+)").unwrap();
         let cap = re.captures(line).ok_or(MalformedDiv(line.to_string()))?;
-        self.div = cap[1].parse::<u64>().map_err(ParseInt)?;
+        self.div = cap[1].parse::<u32>().map_err(ParseInt)?;
         Ok(None)
     }
 
@@ -160,10 +163,10 @@ impl ParserState {
     fn monkey(&self) -> Monkey {
         let operation = self.operation.to_owned();
         let operand = self.operand.to_owned();
-        let op = move |wl: u64| {
+        let op = move |wl: BigUint| {
             let o = match operand {
-                Operand::Num(x) => x,
-                Operand::Old => wl
+                Operand::Num(x) => BigUint::from(x),
+                Operand::Old => wl.clone()
             };
             match operation {
                 Operation::Add => wl + o,
@@ -173,13 +176,12 @@ impl ParserState {
         let div = self.div.to_owned();
         let true_dest = self.true_dest.to_owned();
         let false_dest = self.false_dest.to_owned();
-        let dest = move |wl: u64|
-            if wl % div == 0 {
+        let dest = move |wl: BigUint|
+            if wl % div == Zero::zero() {
                 true_dest
             } else {
                 false_dest
             };
-        //let dest = |_wl| 0;
         Monkey::new(
             self.items.clone(),
             Box::new(op),
@@ -201,18 +203,18 @@ fn parse(path: &str) -> Result<Vec<Monkey>, Error> {
     Ok(result)
 }
 
-fn monkey_business_level() -> Result<u64, Error> {
+fn monkey_business_level(div: u32, num_rounds: u16) -> Result<u64, Error> {
     let mut monkeys = parse("input-11.txt")?;
     let num_monkeys = monkeys.len();
-    for _round in 0..20 {
+    for _round in 0..num_rounds {
         for m in 0..num_monkeys {
             let monkey = &mut monkeys[m];
-            let mut thrown: Vec<Vec<u64>> = vec![vec![]; num_monkeys];
+            let mut thrown: Vec<Vec<BigUint>> = vec![vec![]; num_monkeys];
             for item in &monkey.items {
                 let mut wl = (monkey.op)(item.to_owned());
                 monkey.inspection_count += 1;
-                wl /= 3;
-                let dest = (monkey.dest)(wl);
+                wl /= div;
+                let dest = (monkey.dest)(wl.clone());
                 thrown[dest].push(wl);
                 // println!("[{}]: ({} -> {}) => [{}]", m, item, wl, dest);
             }
@@ -236,7 +238,12 @@ mod run {
     use super::*;
 
     #[test]
-    fn print_monkey_business_level() {
-        println!("{}", monkey_business_level().unwrap());
+    fn print_monkey_business_level_div_3() {
+        println!("{}", monkey_business_level(3, 20).unwrap());
+    }
+
+    #[test]
+    fn print_monkey_business_level_no_div() {
+        println!("{}", monkey_business_level(1, 10000).unwrap());
     }
 }
