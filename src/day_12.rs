@@ -1,10 +1,10 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use Error::*;
 
-// directed graph: each node holds a list of next nodes
+// directed graph: each node holds a list of previous nodes
 type Node = usize;
 type Graph = Vec<Vec<Node>>;
 
@@ -12,58 +12,76 @@ type Graph = Vec<Vec<Node>>;
 enum Error {
     IO(io::Error),
     EmptyQueue,
-    Impossible
 }
 
-fn shortest_path() -> Result<u16, Error> {
-    let (graph, start, end) = parse_graph("input-12.txt")?;
+fn shortest_start_end() -> Result<u16, Error> {
+    let (graph, start, end, _floor) = parse_graph("input-12.txt")?;
+    let stop_nodes = HashSet::from([start]);
+    shortest_path(&graph, end, &stop_nodes)
+}
+
+fn shortest_floor_end() -> Result<u16, Error> {
+    let (graph, _start, end, floor) = parse_graph("input-12.txt")?;
+    let mut stop_nodes = HashSet::new();
+    for i in 0..floor.len() {
+        if floor[i] {
+            stop_nodes.insert(i);
+        }
+    }
+    shortest_path(&graph, end, &stop_nodes)
+}
+
+fn shortest_path(graph: &Graph, end: Node, stop_nodes: &HashSet<Node>) -> Result<u16, Error> {
     // BFS
-    let mut fwd_queue = VecDeque::from([start]);
+    let mut queue = VecDeque::from([end]);
     let mut distance = vec![-1; graph.len()];
-    distance[start] = 0;
-    // TODO: search from both ends; requires easy navigation of back edges
+    distance[end] = 0;
     loop {
-        let v1 = fwd_queue.pop_front().ok_or(EmptyQueue)?;
+        let v1 = queue.pop_front().ok_or(EmptyQueue)?;
         for i in 0..graph[v1].len() {
             let v2 = graph[v1][i];
             if distance[v2] == -1 {
                 distance[v2] = distance[v1] + 1;
-                if v2 == end {
+                if stop_nodes.contains(&v2) {
                     return Ok(distance[v2] as u16)
                 }
-                fwd_queue.push_back(v2)
+                queue.push_back(v2)
             }
         }
     }
 }
 
-fn parse_graph(path: &str) -> Result<(Graph, Node, Node), Error> {
+fn parse_graph(path: &str) -> Result<(Graph, Node, Node, Vec<bool>), Error> {
     let (chars, width) = read_chars(path)?;
     let mut graph = vec![];
+    let mut floor = vec![false; chars.len()];
     let mut start = 0;
     let mut end = 0;
     for i in 0..chars.len() {
-        let mut next_nodes = vec![];
+        let mut prev_nodes = vec![];
         if chars[i] == 'S' {
-            start = i
+            start = i;
+            floor[i] = true
         } else if chars[i] == 'E' {
             end = i
+        } else if chars[i] == 'a' {
+            floor[i] = true
         }
-        if i >= width && can_move(chars[i], chars[i - width]) {
-            next_nodes.push(i - width)
+        if i >= width && can_move(chars[i - width], chars[i]) {
+            prev_nodes.push(i - width)
         }
-        if i < chars.len() - width && can_move(chars[i], chars[i + width]) {
-            next_nodes.push(i + width)
+        if i < chars.len() - width && can_move(chars[i + width], chars[i]) {
+            prev_nodes.push(i + width)
         }
-        if i % width != 0 && can_move(chars[i], chars[i - 1]) {
-            next_nodes.push(i - 1)
+        if i % width != 0 && can_move(chars[i - 1], chars[i]) {
+            prev_nodes.push(i - 1)
         }
-        if i % width != (width - 1) && can_move(chars[i], chars[i + 1]) {
-            next_nodes.push(i + 1)
+        if i % width != (width - 1) && can_move(chars[i + 1], chars[i]) {
+            prev_nodes.push(i + 1)
         }
-        graph.push(next_nodes)
+        graph.push(prev_nodes)
     }
-    Ok((graph, start, end))
+    Ok((graph, start, end, floor))
 }
 
 fn can_move(c1: char, c2: char) -> bool {
@@ -95,7 +113,12 @@ mod run {
     use super::*;
 
     #[test]
-    fn print_shortest_path() {
-        println!("{}", shortest_path().unwrap());
+    fn print_shortest_start_end() {
+        println!("{}", shortest_start_end().unwrap());
+    }
+
+    #[test]
+    fn print_shortest_floor_end() {
+        println!("{}", shortest_floor_end().unwrap());
     }
 }
