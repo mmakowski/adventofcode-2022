@@ -147,7 +147,7 @@ impl ParserState {
     }
 
     fn parse_false_dest(&mut self, line: &String) -> Result<Option<Monkey>, Error> {
-        self.true_dest = self.parse_dest(line, "false")?;
+        self.false_dest = self.parse_dest(line, "false")?;
         Ok(Some(self.monkey()))
     }
 
@@ -205,7 +205,8 @@ fn monkey_business_level() -> Result<u64, Error> {
     let mut monkeys = parse("input-11.txt")?;
     let num_monkeys = monkeys.len();
     for _round in 0..20 {
-        for monkey in &mut monkeys {
+        for m in 0..num_monkeys {
+            let monkey = &mut monkeys[m];
             let mut thrown: Vec<Vec<u64>> = vec![vec![]; num_monkeys];
             for item in &monkey.items {
                 let mut wl = (monkey.op)(item.to_owned());
@@ -213,14 +214,21 @@ fn monkey_business_level() -> Result<u64, Error> {
                 wl /= 3;
                 let dest = (monkey.dest)(wl);
                 thrown[dest].push(wl);
+                // println!("[{}]: ({} -> {}) => [{}]", m, item, wl, dest);
             }
             monkey.items.clear();
-            monkeys[0].items.push(1);
+            for om in 0..num_monkeys {
+                monkeys[om].items.append( thrown[om].as_mut());
+            }
         }
     }
-    // TODO
-    //println!("{:?}", monkeys.iter().map(|m| (m.op)(1)).collect::<Vec<u64>>());
-    Ok(0)
+    let mut counts: Vec<u64> = monkeys.iter()
+        .map(|m| m.inspection_count)
+        .collect();
+    counts.sort();
+    counts.reverse();
+    // println!("{:?}", counts);
+    Ok(counts[0] * counts[1])
 }
 
 #[cfg(test)]
