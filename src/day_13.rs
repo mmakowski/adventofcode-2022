@@ -12,9 +12,10 @@ pub enum Error {
     IO(io::Error),
     ExtraInput(String),
     ParseElem(String),
+    NotFound(Elem)
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Elem {
     Int(u8),
     List(Vec<Elem>),
@@ -42,6 +43,27 @@ fn count_right_order() -> Result<u64, Error> {
     Ok(result)
 }
 
+fn decoder_key() -> Result<usize, Error> {
+    let file = File::open("input-13.txt").map_err(|e| IO(e))?;
+    let p1 = List(vec![List(vec![Int(2)])]);
+    let p2 = List(vec![List(vec![Int(6)])]);
+    let mut packets = vec![p1.clone(), p2.clone()];
+    for line in BufReader::new(file).lines() {
+        let line = line.map_err(|e| IO(e))?;
+        if !line.is_empty() {
+            let packet = line.parse::<Elem>()?;
+            packets.push(packet)
+        }
+    }
+    packets.sort();
+    let idx = |p| packets.binary_search(&p)
+        .map_err(|_| NotFound(p))
+        .map(|i| i + 1);
+    let idx1 = idx(p1.clone())?;
+    let idx2 = idx(p2.clone())?;
+    Ok(idx1 * idx2)
+}
+
 impl FromStr for Elem {
     type Err = Error;
 
@@ -62,8 +84,6 @@ impl FromStr for Elem {
         }
     }
 }
-
-impl Eq for Elem {}
 
 impl PartialOrd<Self> for Elem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -143,6 +163,11 @@ mod run {
     }
 
     #[test]
+    fn print_decoder_key() {
+        println!("{}", decoder_key().unwrap())
+    }
+
+    #[test]
     fn parse() {
         let num = "123".parse::<Elem>().unwrap();
         assert_eq!(num, Int(123));
@@ -158,10 +183,3 @@ mod run {
         assert!(List(vec![Int(0)]) < Int(1));
     }
 }
-/*
-grammar:
-<packet> ::= <list>
-<list> ::= [ <content> ]
-<content> ::= <elem> | <elem> , <content>
-<elem> ::= <num> | <list>
- */
