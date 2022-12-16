@@ -1,4 +1,7 @@
 use std::cmp::Ordering;
+use std::fs::File;
+use std::io;
+use std::io::{BufRead, BufReader};
 use std::str::FromStr;
 use Elem::*;
 
@@ -6,14 +9,37 @@ use Error::*;
 
 #[derive(Debug)]
 pub enum Error {
+    IO(io::Error),
     ExtraInput(String),
-    ParseElem(String)
+    ParseElem(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Elem {
     Int(u8),
     List(Vec<Elem>),
+}
+
+fn count_right_order() -> Result<u64, Error> {
+    let mut i = 0;
+    let mut result = 0;
+    let mut l1 = Int(0);
+    let file = File::open("input-13.txt").map_err(|e| IO(e))?;
+    for line in BufReader::new(file).lines() {
+        let line = line.map_err(|e| IO(e))?;
+        match i % 3 {
+            0 => l1 = line.parse::<Elem>()?,
+            1 => {
+                let l2 = line.parse::<Elem>()?;
+                if l1 < l2 {
+                    result += (i + 2) / 3 // add 1-based index of the pair
+                }
+            }
+            _ => ()
+        }
+        i += 1;
+    }
+    Ok(result)
 }
 
 impl FromStr for Elem {
@@ -63,7 +89,7 @@ impl Ord for Elem {
                         }
                     }
                 }
-            },
+            }
             (Int(_), l) => List(vec![self.clone()]).cmp(l),
             (l, Int(_)) => l.cmp(&List(vec![other.clone()])),
         }
@@ -110,6 +136,11 @@ mod parse {
 #[cfg(test)]
 mod run {
     use super::*;
+
+    #[test]
+    fn print_count_right_order() {
+        println!("{}", count_right_order().unwrap())
+    }
 
     #[test]
     fn parse() {
