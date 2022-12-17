@@ -1,7 +1,9 @@
 use std::io;
 use std::num::ParseIntError;
 use std::ops::Range;
+use crate::day_14::Error::ShouldNotFall;
 use crate::day_14::map::AddResult;
+use crate::day_14::map::FieldContent::RestingSand;
 
 #[derive(Debug)]
 pub enum Error {
@@ -9,7 +11,8 @@ pub enum Error {
     EmptyCoords(String),
     EmptyPoints,
     ParseInt(ParseIntError),
-    CoordsOutOfBounds(usize, usize, Range<usize>, Range<usize>)
+    CoordsOutOfBounds(usize, usize, Range<usize>, Range<usize>),
+    ShouldNotFall
 }
 
 fn count_resting() -> Result<u32, Error> {
@@ -19,6 +22,22 @@ fn count_resting() -> Result<u32, Error> {
         match map.add_sand(500, 0)? {
             AddResult::Rest => result += 1,
             AddResult::Fall => break
+        }
+    }
+    println!("{map:?}");
+    Ok(result)
+}
+
+fn count_resting_with_floor() -> Result<u32, Error> {
+    let mut map = parse::parse_with_floor("input-14.txt")?;
+    let mut result = 0;
+    loop {
+        match map.add_sand(500, 0)? {
+            AddResult::Rest => result += 1,
+            AddResult::Fall => return Err(ShouldNotFall)
+        }
+        if map.field(500, 0)? == RestingSand {
+            break;
         }
     }
     println!("{map:?}");
@@ -58,6 +77,11 @@ mod map {
             let width = x_range.len();
             let height = y_range.len();
             Map { fields: vec![Empty; width * height], x_range, y_range }
+        }
+
+        pub fn field(&self, x: usize, y: usize) -> Result<FieldContent, Error> {
+            let idx = self.to_vec_idx(x, y)?;
+            Ok(self.fields[idx])
         }
 
         pub fn set_field(&mut self, x: usize, y: usize, f: FieldContent) -> Result<(), Error> {
@@ -103,11 +127,6 @@ mod map {
             self.y_range.len()
         }
 
-        fn field(&self, x: usize, y: usize) -> Result<FieldContent, Error> {
-            let idx = self.to_vec_idx(x, y)?;
-            Ok(self.fields[idx])
-        }
-
         fn to_vec_idx(&self, x: usize, y: usize) -> Result<usize, Error> {
             if !(self.x_range.contains(&x) && self.y_range.contains(&y)) {
                 Err(CoordsOutOfBounds(x, y, self.x_range.clone(), self.y_range.clone()))
@@ -138,6 +157,7 @@ mod map {
 mod parse {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
+    use crate::day_14::map::FieldContent::Rock;
 
     use super::Error::*;
     use super::Error;
@@ -145,11 +165,7 @@ mod parse {
 
     pub(crate) fn parse(path: &str) -> Result<Map, Error> {
         let points = parse_points(path)?;
-        let proj = |f: fn(&(usize, usize)) -> &usize| points.iter()
-            .flat_map(|ps| ps.iter().map(f))
-            .collect::<Vec<_>>();
-        let xs = proj(|(x, _)| x);
-        let ys = proj(|(_, y)| y);
+        let (xs, ys) = xs_ys(&points);
         // TODO: dedupe
         let xmin = xs.iter().min().ok_or(EmptyPoints)?.to_owned().to_owned().min(500);
         let xmax = xs.iter().max().ok_or(EmptyPoints)?.to_owned().to_owned().max(500);
@@ -157,6 +173,40 @@ mod parse {
         let ymax = ys.iter().max().ok_or(EmptyPoints)?.to_owned().to_owned().max(0);
         let mut map = Map::new(xmin..(xmax+1), ymin..(ymax+1));
 
+        draw_lines(points, &mut map)?;
+
+        Ok(map)
+    }
+
+    pub(crate) fn parse_with_floor(path: &str) -> Result<Map, Error> {
+        let points = parse_points(path)?;
+        let (xs, ys) = xs_ys(&points);
+
+        let ymin = ys.iter().min().ok_or(EmptyPoints)?.to_owned().to_owned().min(0);
+        let ymax = ys.iter().max().ok_or(EmptyPoints)?.to_owned().to_owned().max(0) + 2;
+        let height = ymax - ymin + 1;
+        let xmin = xs.iter().min().ok_or(EmptyPoints)?.to_owned().to_owned().min(500 - height - 1);
+        let xmax = xs.iter().max().ok_or(EmptyPoints)?.to_owned().to_owned().max(500 + height + 1);
+        let mut map = Map::new(xmin..(xmax+1), ymin..(ymax+1));
+
+        draw_lines(points, &mut map)?;
+        for x in xmin..=xmax {
+            map.set_field(x, ymax, Rock)?;
+        }
+
+        Ok(map)
+    }
+
+    fn xs_ys(points: &Vec<Vec<(usize, usize)>>) -> (Vec<&usize>, Vec<&usize>) {
+        let proj = |f: fn(&(usize, usize)) -> &usize| points.iter()
+            .flat_map(|ps| ps.iter().map(f))
+            .collect::<Vec<_>>();
+        let xs = proj(|(x, _)| x);
+        let ys = proj(|(_, y)| y);
+        (xs, ys)
+    }
+
+    fn draw_lines(points: Vec<Vec<(usize, usize)>>, map: &mut Map) -> Result<(), Error> {
         for line in points {
             let mut ps = line.iter();
             let mut prev = ps.next().ok_or(EmptyPoints)?;
@@ -174,8 +224,7 @@ mod parse {
                 prev = next;
             }
         }
-
-        Ok(map)
+        Ok(())
     }
 
     fn parse_points(path: &str) -> Result<Vec<Vec<(usize, usize)>>, Error> {
@@ -207,5 +256,10 @@ mod run {
     #[test]
     fn print_count_resting() {
         println!("{}", count_resting().unwrap());
+    }
+
+    #[test]
+    fn print_count_resting_with_floor() {
+        println!("{}", count_resting_with_floor().unwrap());
     }
 }
