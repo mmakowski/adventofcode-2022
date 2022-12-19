@@ -1,3 +1,5 @@
+extern crate core;
+
 #[allow(dead_code)]
 mod demo;
 #[allow(dead_code)]

@@ -20,6 +20,12 @@ struct Point {
     pub y: i64
 }
 
+impl Point {
+    fn distance(&self, other: &Self) -> u64 {
+        self.x.abs_diff(other.x) + self.y.abs_diff(other.y)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 struct RowInterval {
     pub start_x: i64,
@@ -47,9 +53,16 @@ impl RowInterval {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 struct SensorBeacon {
     pub sensor: Point,
     pub closest_beacon: Point
+}
+
+impl SensorBeacon {
+    fn distance(&self) -> u64 {
+        self.sensor.distance(&self.closest_beacon)
+    }
 }
 
 fn count_points_with_no_beacon() -> Result<u64, Error> {
@@ -116,4 +129,28 @@ mod run {
     fn print_count_points_with_no_beacon() {
         println!("{}", count_points_with_no_beacon().unwrap());
     }
+
+    #[test]
+    fn print_inequalities() {
+        let sensors = parse("input-15.txt").unwrap();
+        for s in sensors {
+            // sympy inequalities
+            println!("(Abs(x - {}) + Abs(y - {}) - {}, '>')", s.sensor.x, s.sensor.y, s.distance())
+        }
+    }
+
+    #[test]
+    fn print_dist_1() {
+        let sensors = parse("input-15.txt").unwrap();
+        for i in 0..sensors.len() - 1 {
+            for j in i+1..sensors.len() {
+                let s1 = &sensors[i];
+                let s2 = &sensors[j];
+                if s1.sensor.distance(&s2.sensor) == s1.distance() + s2.distance() + 2 {
+                    println!("{},{} - {} : {},{} - {}", s1.sensor.x, s1.sensor.y, s1.distance(), s2.sensor.x, s2.sensor.y, s2.distance())
+                }
+            }
+        }
+    }
+
 }
