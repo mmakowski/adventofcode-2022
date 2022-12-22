@@ -23,6 +23,59 @@ fn max_pressure() -> Result<u64, Error> {
     Ok(max)
 }
 
+fn max_pressure_2(num_agents: usize) -> Result<u64, Error> {
+    let (graph, start) = parse("input-16.txt")?;
+    let mut free_locs = graph.nodes();
+    free_locs.remove(start.as_str());
+    let agents = vec![Agent { loc: start, next_move_time: 0 }; num_agents];
+    let max = max_pressure_p2(agents, 0, free_locs, &graph)?;
+    Ok(max)
+}
+
+#[derive(Clone, Debug)]
+struct Agent {
+    pub loc: String,
+    pub next_move_time: u32
+}
+
+fn max_pressure_p2(agents: Vec<Agent>, acc: u64, remaining_locs: HashSet<String>, graph: &Graph) -> Result<u64, Error> {
+    const TOTAL_TIME: u32 = 26;
+    if remaining_locs.is_empty() {
+        return Ok(acc)
+    }
+
+    let mut next_agent = 0;
+    let mut time = u32::MAX;
+    for i in 0..agents.len() {
+        if agents[i].next_move_time < time {
+            next_agent = i;
+            time = agents[i].next_move_time;
+        }
+    }
+    let next_agent = next_agent;
+    let loc = &agents[next_agent].loc;
+
+    let mut totals = HashSet::new();
+    for next_loc in &remaining_locs {
+        let mut next_remaining_locs = remaining_locs.clone();
+        next_remaining_locs.remove(next_loc);
+        let time_diff = graph.move_time(loc, next_loc) + 1;
+        let next_time = time + time_diff;
+        if next_time < TOTAL_TIME {
+            let next_acc = acc + graph.flow_rate(next_loc) * (TOTAL_TIME - next_time) as u64;
+            let mut next_agents = agents.clone();
+            next_agents[next_agent] = Agent { loc: next_loc.to_owned(), next_move_time: next_time };
+            let path_max = max_pressure_p2(next_agents, next_acc, next_remaining_locs, graph)?;
+            totals.insert(path_max);
+        }
+    }
+    if let Some(max) = totals.iter().max() {
+        Ok(max.to_owned())
+    } else {
+        Ok(acc)
+    }
+}
+
 fn max_pressure_p(time: u32, acc: u64, loc: &String, remaining_locs: HashSet<String>, graph: &Graph, prefix: Vec<&String>) -> Result<u64, Error> {
     const TOTAL_TIME: u32 = 30;
     if remaining_locs.is_empty() {
@@ -144,5 +197,10 @@ mod run {
     #[test]
     fn print_max_pressure() {
         println!("{}", max_pressure().unwrap());
+    }
+
+    #[test]
+    fn print_max_pressure_2() {
+        println!("{}", max_pressure_2(2).unwrap());
     }
 }
